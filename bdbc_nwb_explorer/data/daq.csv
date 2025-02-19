@@ -1,0 +1,18 @@
+Name,Available_raw,Available_ds,Unit_raw,Unit_ds,Type_raw,Type_ds,Description
+tone,1,1,V,NA,Digital (TTL),Boolean,The pulses representing when the auditory cue (10 kHz pure tone) is on.
+lever,1,1,mm,mm,Analog,Analog,The distance of the lever from its baseline position.
+reward,1,1,V,NA,Digital (TTL),Boolean,The pulses used for reward delivery.
+lick,1,1,V,NA,Digital (TTL),Boolean,The output of the lick sensor indicating when the animal licked the spout.
+lick_rate,0,1,,Hz,Analog,Analog,The lick rate calculated by applying an exponential kernel to the lick-event onset series.
+motion,1,1,a.u.,a.u.,Analog,Analog,The output of the load-cell motion sensor.
+pull_duration,1,0,ms,,Integer,,The minimum duration for the animal to keep pulling the lever during the trial at the given time point.
+state_lever,1,1,NA,NA,Boolean,Boolean,The binary status indicating whether the lever is in the pulled state.
+state_task,1,1,NA,NA,Integer,Integer,"The state of the task: waiting phase (0), cued phase (1) or reward phase (2)."
+air_pressure,1,1,hPa,hPa,Analog,Analog,The atmospheric air pressure level around the behavioral setup.
+CO2_level,1,1,ppm,ppm,Analog,Analog,The atmospheric carbon dioxide level around the behavioral setup.
+humidity,1,1,%,%,Analog,Analog,The atmospheric humidity around the behavioral setup.
+room_temp,1,1,℃,℃,Analog,Analog,The atmospheric temperature around the behavioral setup.
+LED_B,1,0,V,,Digital (TTL),,The pulses representing when the blue (470 nm) LED is on.
+LED_V,1,0,V,,Digital (TTL),,The pulses representing when the violet (405 nm) LED is on.
+img_acquisition,1,0,V,,Digital (CMOS),,"Pulses from the camera for calcium imaging, each of which corresponds to the timing when a single frame becomes ready."
+video_trig,1,0,V,,Digital (TTL),,The pulses representing when video-frame acquisition should be started.

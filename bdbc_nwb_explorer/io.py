@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Iterator
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -31,12 +31,18 @@ from pynwb import (
     NWBFile as _NWBFile,
 )
 
+from . import auxdata as _auxdata
+
 
 PathLike = str | Path
 
+ANALOG_DATA_TYPE = 'Analog'
+ARBITRARY_UNIT = 'a.u.'
 
-@dataclass(frozen=True)
+
+@dataclass
 class NWBMetadata:
+    downsampled: bool
     session_id: str
     session_description: str
     session_notes: str
@@ -44,11 +50,83 @@ class NWBMetadata:
     subject_DoB: str
     subject_age: str
     subject_sex: str
+    rois: _pd.DataFrame
+    trials: Optional[_pd.DataFrame] = None
+    daq: _pd.DataFrame = None
+    body_video: _pd.DataFrame = None
+    face_video: _pd.DataFrame = None
+    eye_video: _pd.DataFrame = None
+
+    def __post_init__(self):
+        self.daq = _auxdata.daq_metadata(downsampled=self.downsampled)
+        self.body_video = _auxdata.body_video_metadata()
+        self.face_video = _auxdata.face_video_metadata()
+        self.eye_video = _auxdata.eye_video_metadata()
 
 
 @dataclass(frozen=True)
-class NWBData:
-    downsampled: bool
+class NWBDataEntry:
+    name: str
+    domain: str
+    data: _pd.Series | _pd.DataFrame
+    datatype: str
+    unit: str
+    description: str
+    metadata: Optional[dict[str, object]] = None
+
+    @property
+    def timestamps(self):
+        return self.data.index.values
+
+    @property
+    def values(self):
+        if isinstance(self.data, _pd.DataFrame):
+            return self.data.to_numpy()
+        else:
+            return self.data.values
+
+    @property
+    def shape(self):
+        if isinstance(self.data, _pd.DataFrame):
+            return self.data.shape
+        else:
+            return (self.data.values.size,)
+
+    @property
+    def size(self):
+        if isinstance(self.data, _pd.DataFrame):
+            return self.data.shape[0]
+        else:
+            return self.data.values.size
+
+    @property
+    def dt(self):
+        return _np.diff(self.timestamps).mean()
+
+    @property
+    def rate(self):
+        return 1 / self.dt
+
+    def to_dataframe(
+        self,
+        with_domain_name: bool = False
+    ) -> _pd.DataFrame:
+        if with_domain_name == True:
+            basename = f"{self.domain}_{self.name}"
+        else:
+            basename = self.name
+        basedata = dict()
+        if isinstance(self.data, _pd.DataFrame):
+            for col in self.data.columns:
+                basedata[f"{basename}_{col}"] = self.data[col].values
+        else:
+            basedata[basename] = self.data.values
+        return _pd.DataFrame(data=basedata, index=self.data.index)
+
+
+@dataclass(frozen=True)
+class NWBDataStore:
+    filepath: str
     metadata: NWBMetadata
     trials: Optional[_pd.DataFrame]
     daq: _pd.DataFrame
@@ -58,19 +136,147 @@ class NWBData:
     eye_video: Optional[_pd.DataFrame]
     pupil: Optional[_pd.DataFrame]
 
+    def iterate_over_daq_entries(self) -> Iterator[NWBDataEntry]:
+        for _, row in self.metadata.daq.iterrows():
+            yield NWBDataEntry(
+                name=row.Name,
+                domain='daq',
+                data=self.daq[row.Name],
+                datatype=row.Type,
+                unit=row.Unit,
+                description=row.Description,
+            )
+
+    def iterate_over_imaging_entries(self) -> Iterator[NWBDataEntry]:
+        for _, row in self.metadata.rois.iterrows():
+            yield NWBDataEntry(
+                name=row.roi_name,
+                domain='imaging',
+                data=self.imaging[row.roi_name],
+                datatype=ANALOG_DATA_TYPE,
+                unit=ARBITRARY_UNIT,
+                description=row.roi_description,
+                metadata=dict(mask=row.image_mask)
+            )
+
+    def iterate_over_body_video_entries(self) -> Iterator[NWBDataEntry]:
+        if self.body_video is not None:
+            for _, row in self.metadata.body_video.iterrows():
+                data = _pd.DataFrame(data={
+                    'x': self.body_video[row.Name, 'x'],
+                    'y': self.body_video[row.Name, 'y'],
+                })
+                if not self.metadata.downsampled:
+                    metadata = dict(likelihood=self.body_video[row.Name, 'likelihood'])
+                else:
+                    metadata = None
+
+                yield NWBDataEntry(
+                    name=row.Name,
+                    domain='body_video',
+                    data=data,
+                    datatype=ANALOG_DATA_TYPE,
+                    unit='px',
+                    description=row.Description,
+                    metadata=metadata,
+                )
+
+    def iterate_over_face_video_entries(self) -> Iterator[NWBDataEntry]:
+        if self.face_video is not None:
+            for _, row in self.metadata.face_video.iterrows():
+                data = _pd.DataFrame(data={
+                    'x': self.face_video[row.Name, 'x'],
+                    'y': self.face_video[row.Name, 'y'],
+                })
+                if not self.metadata.downsampled:
+                    metadata = dict(likelihood=self.face_video[row.Name, 'likelihood'])
+                else:
+                    metadata = None
+
+                yield NWBDataEntry(
+                    name=row.Name,
+                    domain='face_video',
+                    data=data,
+                    datatype=ANALOG_DATA_TYPE,
+                    unit='px',
+                    description=row.Description,
+                    metadata=metadata,
+                )
+
+    def iterate_over_eye_video_entries(
+        self,
+        include_pupil_edges: bool = False
+    ) -> Iterator[NWBDataEntry]:
+        if self.eye_video is not None:
+            for _, row in self.metadata.eye_video.iterrows():
+                if (not include_pupil_edges) and ('edge' in row.Name):
+                    continue
+
+                if row.Name == 'pupilcenter':
+                    data = _pd.DataFrame(data={
+                        'x': self.pupil['center_x'],
+                        'y': self.pupil['center_y']
+                    })
+                    metadata = None
+                elif row.Name == 'pupildia':
+                    data = _pd.Series(data=self.pupil['diameter'])
+                    metadata = None
+                else:
+                    data = _pd.DataFrame(data={
+                        'x': self.eye_video[row.Name, 'x'],
+                        'y': self.eye_video[row.Name, 'y'],
+                    })
+                    if not self.metadata.downsampled:
+                        metadata = dict(likelihood=self.eye_video[row.Name, 'likelihood'])
+                    else:
+                        metadata = None
+
+                yield NWBDataEntry(
+                    name=row.Name,
+                    domain='eye_video',
+                    data=data,
+                    datatype=ANALOG_DATA_TYPE,
+                    unit='px',
+                    description=row.Description,
+                    metadata=metadata,
+                )
+
+    def iterate_over_entries(self, include_pupil_edges: bool = False) -> Iterator[NWBDataEntry]:
+        yield from self.iterate_over_daq_entries()
+        yield from self.iterate_over_imaging_entries()
+        yield from self.iterate_over_body_video_entries()
+        yield from self.iterate_over_face_video_entries()
+        yield from self.iterate_over_eye_video_entries(include_pupil_edges=include_pupil_edges)
+
 
 def read_metadata(
     nwbfile: _NWBFile,
+    downsampled: bool = True,
 ) -> NWBMetadata:
     # TODO: better including trials/acquisition/ROIs/keypoints metadata
+    dff_entry = nwbfile.get_processing_module('ophys').get_data_interface('DfOverF').get_roi_response_series('dFF')
+    if nwbfile.trials is None:
+        trials_metadata = None
+    else:
+        trials_metadata = {
+            'Name': [],
+            'Description': []
+        }
+        for name in nwbfile.trials.colnames:
+            trials_metadata['Name'].append(name)
+            trials_metadata['Description'].append(nwbfile.trials[name].description)
+        trials_metadata = _pd.DataFrame(data=trials_metadata)
     metadata = {
+        'downsampled': downsampled,
         'session_id': nwbfile.session_id,
         'session_description': nwbfile.session_description,
         'session_notes': nwbfile.notes,
         'subject_id': nwbfile.subject.subject_id,
         'subject_DoB': nwbfile.subject.date_of_birth.strftime('%Y-%m-%d'),
         'subject_age': nwbfile.subject.age,
-        'subject_sex': nwbfile.subject.sex
+        'subject_sex': nwbfile.subject.sex,
+        'trials': trials_metadata,
+        'rois': dff_entry.rois.table.to_dataframe(),
     }
     return NWBMetadata(**metadata)
 
@@ -184,18 +390,18 @@ def read_roi_dFF(nwbfile: _NWBFile) -> _pd.DataFrame:
     return _pd.DataFrame(data=dff, columns=names, index=time)
 
 
-def load_from_file(
+def read_all(
     nwbfilepath: PathLike,
-    downsampled: bool = True
-) -> NWBData:
+    downsampled: bool = True,
+) -> NWBDataStore:
     with _NWBHDFIO(nwbfilepath, mode='r') as src:
         nwbfile = src.read()
         data = dict()
-        data['metadata'] = read_metadata(nwbfile)
+        data['metadata'] = read_metadata(nwbfile, downsampled=downsampled)
         data['daq'] = read_acquisition(nwbfile, downsampled=downsampled)
         data['imaging'] = read_roi_dFF(nwbfile)
         data['trials'] = read_trials(nwbfile, downsampled=downsampled)
         for view in ('body', 'face', 'eye'):
             data[f'{view}_video'] = read_video_tracking(nwbfile, view=view, downsampled=downsampled)
         data['pupil'] = read_video_tracking(nwbfile, view='pupil', downsampled=downsampled)
-    return NWBData(downsampled=downsampled, **data)
+    return NWBDataStore(filepath=str(nwbfilepath), **data)

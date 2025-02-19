@@ -24,9 +24,12 @@ from importlib import reload as _reload  # DEBUG
 
 from . import (
     io,
+    view,
 )
 
 _reload(io)  # DEBUG
+_reload(view)
 
-NWBData = io.NWBData
-load_from_file = io.load_from_file
+NWBData = view.NWBData
+NWBDataEntry = io.NWBDataEntry
+read_nwb = view.read_nwb
