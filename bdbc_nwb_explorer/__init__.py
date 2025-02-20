@@ -25,12 +25,14 @@ from importlib import reload as _reload  # DEBUG
 from . import (
     io,
     view,
-    process
+    process,
+    filters,
 )
 
 _reload(io)  # DEBUG
 _reload(view)  # DEBUG
 _reload(process)  # DEBUG
+_reload(filters)  # DEBUG
 
 NWBData = view.NWBData
 NWBDataEntry = io.NWBDataEntry
@@ -40,3 +42,9 @@ read_nwb = view.read_nwb
 triggers_to_indices = process.triggers_to_indices
 peth_1d = process.peth_1d
 block_1d = process.block_1d
+
+zscore = filters.zscore
+normalize = filters.normalize
+clip_percentile = filters.clip_percentile
+take_axis = filters.take_axis
+foreach = filters.foreach

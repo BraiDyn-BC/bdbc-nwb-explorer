@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 from typing import Literal, Optional, Iterator
+from typing_extensions import Self
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -73,6 +74,36 @@ class NWBDataEntry:
     unit: str
     description: str
     metadata: Optional[dict[str, object]] = None
+
+    def replace(
+        self,
+        data: Optional[_pd.Series | _pd.DataFrame] = None,
+        datatype: Optional[str] = None,
+        unit: Optional[str] = None,
+        metadata: Optional[dict[str, object]] = None,
+    ) -> Self:
+        if data is None:
+            data = self.data
+        if datatype is None:
+            datatype = self.datatype
+        if unit is None:
+            unit = self.unit
+        if metadata is None:
+            metadata = self.metadata  # may be None anyway
+        else:
+            if self.metadata is not None:
+                _input = metadata.copy()
+                metadata = self.metadata.copy()
+                metadata.update(_input)
+        return self.__class__(
+            name=self.name,
+            domain=self.domain,
+            data=data,
+            datatype=datatype,
+            unit=unit,
+            description=self.description,
+            metadata=metadata
+        )
 
     @property
     def timestamps(self):
