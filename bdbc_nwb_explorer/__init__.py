@@ -25,11 +25,18 @@ from importlib import reload as _reload  # DEBUG
 from . import (
     io,
     view,
+    process
 )
 
 _reload(io)  # DEBUG
-_reload(view)
+_reload(view)  # DEBUG
+_reload(process)  # DEBUG
 
 NWBData = view.NWBData
 NWBDataEntry = io.NWBDataEntry
+
 read_nwb = view.read_nwb
+
+triggers_to_indices = process.triggers_to_indices
+peth_1d = process.peth_1d
+block_1d = process.block_1d

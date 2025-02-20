@@ -37,7 +37,7 @@ from . import io as _io
 
 ID_PATTERN = _re.compile(r'([a-zA-Z0-9-#]+)_([0-9-]+)_(task|resting-state|sensory-stim)-day([0-9-]+)')
 DATE_FORMAT = '%Y-%m-%d'
-DOMAINS: tuple[str] = ('daq', 'imaging', 'body_video', 'face_video', 'eye_video')
+DOMAINS: tuple[str] = ('daq', 'imaging', 'body_video', 'eye_video', 'face_video')
 
 StringEntrySpec = Optional[str | tuple[str]]
 
@@ -112,7 +112,7 @@ class EntryPattern(namedtuple('EntryPattern', ('domain', 'name'))):
         if spec is None:
             return cls(None, '*')
         elif isinstance(spec, tuple):
-            if any(not ((item is None) or isinstance(item)) for item in spec):
+            if any(not ((item is None) or isinstance(item, str)) for item in spec):
                 raise ValueError(f'the entry specification needs to be a tuple of str objects, got {repr(spec)}')
             if len(spec) == 1:
                 return cls(domain=None, name=spec[0])
@@ -333,6 +333,29 @@ class NWBEntrySet:
     def apply(self, fn: Callable[[_io.NWBDataEntry], _io.NWBDataEntry]) -> Self:
         return self.__class__.setup(fn(entry) for entry in self.iterate_over_entries())
 
+    def _asdict(self) -> dict[str, dict[str, _io.NWBDataEntry]]:
+        """returns the deep copy of domains_lookup_"""
+        lookup = dict()
+        for domain, entries in self.domains_lookup_.items():
+            lookup[domain] = dict()
+            for name, entry in entries.items():
+                lookup[domain][name] = entry
+        return lookup
+
+    def __or__(self, other):
+        """merges two NWBEntrySet objects, with `self` being prioritized over `other`"""
+        # deep-copy domains_lookup_
+        lookup = self._asdict()
+        for entry in other.iterate_over_entries():
+            if entry.name in lookup[entry.domain].keys():
+                continue
+            lookup[entry.domain][entry.name] = entry
+        entries = []
+        for dentries in lookup.values():
+            for entry in dentries.values():
+                entries.append(entry)
+        return self.__class__.setup(entries)
+
 
 @dataclass
 class NWBData:
@@ -343,10 +366,10 @@ class NWBData:
     include_pupil_edges: bool = False
     REPR_FORMAT: ClassVar[str] = """{this}(
     subject={subject},
-    date={datestr},
-    type={session_type},
-    description={session_description},
-    notes={session_notes},
+    session_date={datestr},
+    session_type={session_type},
+    session_description={session_description},
+    session_notes={session_notes},
     {spec_trials},
     {spec_daq},
     {spec_imaging},
