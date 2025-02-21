@@ -42,9 +42,3 @@ read_nwb = view.read_nwb
 triggers_to_indices = process.triggers_to_indices
 peth_1d = process.peth_1d
 block_1d = process.block_1d
-
-zscore = filters.zscore
-normalize = filters.normalize
-clip_percentile = filters.clip_percentile
-take_axis = filters.take_axis
-foreach = filters.foreach
