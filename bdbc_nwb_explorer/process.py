@@ -19,8 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from typing import Optional
-from collections import namedtuple
+from typing import Optional, NamedTuple
 import warnings as _warnings
 
 import numpy as _np
@@ -32,9 +31,16 @@ class AlignmentWarning(UserWarning):
     pass
 
 
-class PETH(namedtuple('PETH', ('lags', 'values'))):
+class PETH(NamedTuple):
     """the tuple representing a set of peri-event time histograms."""
-    pass
+    lags: _npt.NDArray
+    values: _npt.NDArray
+
+
+class Correlogram(NamedTuple):
+    """the tuple representing a correlogram."""
+    lags: _npt.NDArray
+    coefs: _npt.NDArray
 
 
 def pearson_r(
@@ -86,6 +92,7 @@ def peth_1d(
     triggers: _npt.NDArray[_np.integer],
     pretrigger: int = 30,
     posttrigger: int = 60,
+    rate: Optional[float] = None,
     baseline: Optional[slice] = None,
     reduction=_np.nanmean,
     dtype=_np.float32,
@@ -98,22 +105,31 @@ def peth_1d(
     arguments
     ---------
     x (array): 1-D array, in shape (num_samples,)
+
     triggers (non-negative integer array): a set of indices.
        it is assumed to, but does not have to, be limited to
        0 <= triggers <= num_samples.
+
     pretrigger, posttrigger (int): specify the extent to which the
        aligned traces will be extracted. The resulting lags around
        each trigger, in samples, would be [-pretrigger, posttrigger-1].
        By default, pretrigger is 30 and posttrigger is 60.
-    baseline (slice, Optional): if specified, the procedure performs
+
+    rate (float, optional): if specified, the values of resulting
+       `lags` will be divided with this value (for the ease of use
+       in plotting).
+
+    baseline (slice, optional): if specified, the procedure performs
        baseline subtraction. For example, specifying `slice(None, pretrigger)`
        will result in considering the whole pre-trigger period to be
        the "baseline" period. By default, no baseline subtraction will
        occur.
+
     reduction (default: numpy.nanmean): the method to compute
        baseline; matters only when baseline subtraction is specified.
        Any function that receives a numpy array and returns a value
        may be specified here.
+
     dtype (default: numpy float32): the data type of the array to be
        returned.
     """
@@ -134,7 +150,53 @@ def peth_1d(
             _warnings.simplefilter('ignore', category=RuntimeWarning)
             out = out - reduction(out[baseline, :], axis=0)
     lags = _np.arange(pretrigger + posttrigger) - pretrigger
+    if rate is not None:
+        lags = lags / rate
     return PETH(lags, out)
+
+
+def correlogram(
+    target: _npt.NDArray,
+    reference: Optional[_npt.NDArray] = None,
+    standardize: bool = True,
+    rate: Optional[float] = None,
+) -> Correlogram:
+    """
+    computes a correlogram for `target` with respect to `reference`.
+
+    **IMPORTANT**: this algorithm internally use `numpy.correlate`.
+    Computing will fail if `target` or `reference` contains any NaN.
+
+    parameters
+    ----------
+    target (numpy array): the values to compute the correlogram for.
+
+    reference (numpy array, optional): the reference to compute the
+       correlogram based on. If not specified, the target values
+       themselves will be used (i.e. computes an auto-correlogram).
+
+    standardize (bool, default: True): whether or not to compute
+       Z-scores of the values before computing (which should
+       correspond to the strict definition of a correlogram).
+
+    rate (float, optional): the sampling rate of the series.
+       If specified, the resulting values of `lags` will be
+       divided by this value (for the ease of use in plotting).
+    """
+    if reference is None:
+        reference = target
+
+    if standardize:
+        target = (target - _np.nanmean(target)) / _np.nanstd(target)
+        reference = (reference - _np.nanmean(reference)) / _np.nanstd(reference)
+
+    N = target.size
+    C = _np.correlate(target, reference, mode="full")
+    lags = _np.arange(2 * N - 1) - (N - 1)
+    weights = N - _np.abs(lags)
+    if rate is not None:
+        lags = lags / rate
+    return Correlogram(lags=lags, coefs=C / weights)
 
 
 def block_1d(

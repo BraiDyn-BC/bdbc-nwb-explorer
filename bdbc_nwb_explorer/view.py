@@ -119,7 +119,7 @@ class EntryPattern(namedtuple('EntryPattern', ('domain', 'name'))):
             elif len(spec) == 2:
                 return cls(domain=spec[0], name=spec[1])
             else:
-                raise ValueError(f"too long the entry specification tuple (size {len(spec)})")
+                raise ValueError(f"too long the entry specification tuple (size {len(spec)}: perhaps use double-brackets instead of single ones?)")
         else:
             if len(spec) == 0:
                 raise ValueError('unexpected empty string')
