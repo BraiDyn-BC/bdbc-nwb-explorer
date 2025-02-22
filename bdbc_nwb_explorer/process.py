@@ -202,7 +202,7 @@ def correlogram(
 def block_1d(
     x: _npt.NDArray,
     tol: float = 1e-6,
-    retain_zeros: bool = True,
+    retain_zeros: bool = False,
 ) -> _pd.DataFrame:
     """
     detects and returns the time windows (or 'blocks') where the value of `x` stays the same.
@@ -213,7 +213,7 @@ def block_1d(
     - `stop` indicating the stopping (i.e. exclusive) index of each block.
     - `value` indicating the value of each block.
 
-    if `retain_zeros` (True by default) are set to False, the blocks with zero-values will be
+    if `retain_zeros` (False by default) are set to False, the blocks with zero-values will be
     discarded prior to being returned. This should be useful when you are only interested in
     non-zero blocks (e.g. only those containing True).
 

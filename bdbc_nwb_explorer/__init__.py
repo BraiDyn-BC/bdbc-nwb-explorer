@@ -46,4 +46,5 @@ peth_1d = process.peth_1d
 block_1d = process.block_1d
 correlogram = process.correlogram
 
+raster = plot.raster
 convert_to_Allen_CCF = plot.convert_to_Allen_CCF

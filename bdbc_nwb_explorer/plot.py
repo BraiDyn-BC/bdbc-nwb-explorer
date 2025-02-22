@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as _np
 import numpy.typing as _npt
 import h5py as _h5
+import matplotlib.pyplot as _plt
 
 MASK_FILE = Path(__file__).parent / 'data' / 'AllenCCF_masks.h5'
 
@@ -72,3 +73,32 @@ def convert_to_Allen_CCF(roi_values: dict[str, _np.floating]) -> _npt.NDArray[_n
         if name in roi_values.keys():
             CCF[mask] = roi_values[name]
     return CCF
+
+
+def raster(
+    t: _npt.NDArray,
+    y0: float = 0,
+    y1: float = 1,
+    ax: Optional[_plt.Axes] = None,
+    **kwargs
+):
+    """
+    draws a raster plot (vertical bars from `y0` to `y1`
+    at timings `t`).
+
+    internally calls `matplotlyb.pyplot.plot()`,
+    and returns the (set of) Line2D object(s).
+
+    `**kwargs` will be directly passed to `plot()`,
+    so that the users can specify e.g. the color,
+    width, etc. of the lines.
+    """
+    rx = _np.empty((t.size, 4))
+    ry = _np.empty((t.size, 4)) * _np.nan
+    for i, x in enumerate(t):
+        rx[i, :] = x
+        ry[i, 1] = y0
+        ry[i, 2] = y1
+    if ax is None:
+        ax = _plt.gca()
+    return ax.plot(rx.ravel(), ry.ravel(), '-', **kwargs)
