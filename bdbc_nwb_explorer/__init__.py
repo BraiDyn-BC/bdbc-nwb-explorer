@@ -27,12 +27,14 @@ from . import (
     view,
     process,
     filters,
+    plot,
 )
 
 _reload(io)  # DEBUG
 _reload(view)  # DEBUG
 _reload(process)  # DEBUG
 _reload(filters)  # DEBUG
+_reload(plot)  # DEBUG
 
 NWBData = view.NWBData
 NWBDataEntry = io.NWBDataEntry
@@ -43,3 +45,5 @@ triggers_to_indices = process.triggers_to_indices
 peth_1d = process.peth_1d
 block_1d = process.block_1d
 correlogram = process.correlogram
+
+convert_to_Allen_CCF = plot.convert_to_Allen_CCF
