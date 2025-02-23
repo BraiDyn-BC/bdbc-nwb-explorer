@@ -52,6 +52,7 @@ class NWBMetadata:
     subject_DoB: str
     subject_age: str
     subject_sex: str
+    subject_weight: str
     rois: _pd.DataFrame
     trials: Optional[_pd.DataFrame] = None
     daq: _pd.DataFrame = None
@@ -307,6 +308,7 @@ def read_metadata(
         'subject_DoB': nwbfile.subject.date_of_birth.strftime('%Y-%m-%d'),
         'subject_age': nwbfile.subject.age,
         'subject_sex': nwbfile.subject.sex,
+        'subject_weight': nwbfile.subject.weight,
         'trials': trials_metadata,
         'rois': dff_entry.rois.table.to_dataframe(),
     }
