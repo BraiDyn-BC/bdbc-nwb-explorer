@@ -33,10 +33,10 @@ MASK_REG: Optional[Dict[str, _npt.NDArray[bool]]] = None
 MASK_SHAPE: Optional[Tuple[int]] = None
 
 
-def get_roi_masks() -> Dict[str, _npt.NDArray[bool]]:
+def get_roi_masks(reload: bool = False) -> Dict[str, _npt.NDArray[bool]]:
     """returns the 512x512 masks"""
     global MASK_REG
-    if MASK_REG is None:
+    if reload or (MASK_REG is None):
         return load_roi_masks()
     return MASK_REG
 
@@ -53,7 +53,7 @@ def load_roi_masks() -> Dict[str, _npt.NDArray[bool]]:
             entry = src['masks'][ID]
             if 'outline' in entry.attrs['name']:
                 continue
-            mask = (_np.array(entry, copy=False) > 0)
+            mask = (_np.array(entry) > 0)
             MASK_REG[_as_name(entry.attrs['name'], entry.attrs['side'])] = mask
             MASK_SHAPE = mask.shape
     return MASK_REG
