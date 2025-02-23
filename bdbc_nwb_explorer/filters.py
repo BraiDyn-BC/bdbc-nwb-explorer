@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 """filtering functions for NWBEntrySet objects."""
-from typing import Callable, Optional
+from typing import Union, Callable, Optional
 from collections import namedtuple
 
 import numpy as _np
@@ -31,7 +31,7 @@ from . import io as _io
 
 
 NWBDataEntry = _io.NWBDataEntry
-EntryData = _pd.Series | _pd.DataFrame
+EntryData = Union[_pd.Series, _pd.DataFrame]
 ArrayFilter = Callable[[_npt.NDArray], _npt.NDArray]
 EntryFilter = Callable[[NWBDataEntry], NWBDataEntry]
 
