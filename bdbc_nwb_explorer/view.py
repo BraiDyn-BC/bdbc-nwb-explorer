@@ -20,7 +20,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import ClassVar, Optional, Iterable, Iterator, Callable
+from typing import (
+    Union,
+    ClassVar,
+    Optional,
+    Iterable,
+    Iterator,
+    Callable,
+    Tuple,
+    List,
+    Dict,
+)
 from typing_extensions import Self
 from pathlib import Path
 from dataclasses import dataclass
@@ -37,9 +47,9 @@ from . import io as _io
 
 ID_PATTERN = _re.compile(r'([a-zA-Z0-9-#]+)_([0-9-]+)_(task|resting-state|sensory-stim)-day([0-9-]+)')
 DATE_FORMAT = '%Y-%m-%d'
-DOMAINS: tuple[str] = ('daq', 'imaging', 'body_video', 'eye_video', 'face_video')
+DOMAINS: Tuple[str] = ('daq', 'imaging', 'body_video', 'eye_video', 'face_video')
 
-StringEntrySpec = Optional[str | tuple[str]]
+StringEntrySpec = Optional[Union[str, Tuple[str]]]
 
 
 class DataNotFoundWarning(UserWarning):
@@ -135,12 +145,12 @@ class EntryPattern(namedtuple('EntryPattern', ('domain', 'name'))):
 
 
 class EntryLookup:
-    specs: list[EntryPattern] = None
-    matched: list[bool] = None
+    specs: List[EntryPattern] = None
+    matched: List[bool] = None
 
     def __init__(
         self,
-        specs: tuple[EntryPattern],
+        specs: Tuple[EntryPattern],
     ):
         self.specs = list(specs)
         self.matched = [False] * len(self.specs)
@@ -191,11 +201,11 @@ class NWBEntrySet:
     all the entries in the specified domain.
     """
 
-    names_lookup_: dict[str, _io.NWBDataEntry]
-    domains_lookup_: dict[str, dict[str, _io.NWBDataEntry]]
-    overlaps_lookup_: tuple[str]
-    sizes_lookup_: dict[str, int]
-    rates_lookup_: dict[str, float]
+    names_lookup_: Dict[str, _io.NWBDataEntry]
+    domains_lookup_: Dict[str, Dict[str, _io.NWBDataEntry]]
+    overlaps_lookup_: Tuple[str]
+    sizes_lookup_: Dict[str, int]
+    rates_lookup_: Dict[str, float]
 
     REPR_FORMAT: ClassVar[str] = """{this}(
     {spec_daq},
@@ -271,11 +281,11 @@ class NWBEntrySet:
         return self.__class__.setup(self.lookup(specs))
 
     @property
-    def names(self) -> tuple[str]:
+    def names(self) -> Tuple[str]:
         return tuple(self.names_lookup_.keys())
 
     @property
-    def domains(self) -> tuple[str]:
+    def domains(self) -> Tuple[str]:
         return tuple(domain for domain in self.domains_lookup_.keys() if len(self.domains_lookup_[domain]) > 0)
 
     @property
@@ -298,7 +308,7 @@ class NWBEntrySet:
             basedata.append(entry.to_dataframe(with_domain_name=(entry.name in self.overlaps_lookup_)))
         return _pd.concat(basedata, axis=1)
 
-    def count(self, domain: Optional[str | Iterable[str]] = None) -> int:
+    def count(self, domain: Optional[Union[str, Iterable[str]]] = None) -> int:
         """returns the number of entries in a domain, or a set of domains.
         if `domain` is not specified, it returns the number of all the available entries."""
         if domain is None:
@@ -315,7 +325,7 @@ class NWBEntrySet:
 
     def lookup(
         self,
-        specs: tuple[EntryPattern],
+        specs: Tuple[EntryPattern],
         allow_multiple: bool = True
     ) -> Iterator[_io.NWBDataEntry]:
         server = EntryLookup(specs)
@@ -333,7 +343,7 @@ class NWBEntrySet:
     def apply(self, fn: Callable[[_io.NWBDataEntry], _io.NWBDataEntry]) -> Self:
         return self.__class__.setup(fn(entry) for entry in self.iterate_over_entries())
 
-    def _asdict(self) -> dict[str, dict[str, _io.NWBDataEntry]]:
+    def _asdict(self) -> Dict[str, Dict[str, _io.NWBDataEntry]]:
         """returns the deep copy of domains_lookup_"""
         lookup = dict()
         for domain, entries in self.domains_lookup_.items():
@@ -399,7 +409,7 @@ class NWBData:
             **self._repr_specs()
         )
 
-    def _repr_specs(self) -> dict[str, str]:
+    def _repr_specs(self) -> Dict[str, str]:
         specs = dict()
         specs['spec_trials'] = f"trials={self.trials_._describe()}"
         for domain in DOMAINS:

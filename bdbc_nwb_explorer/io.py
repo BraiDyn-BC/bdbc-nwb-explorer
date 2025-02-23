@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import Literal, Optional, Iterator
+from typing import Union, Literal, Optional, Iterator, Dict
 from typing_extensions import Self
 from pathlib import Path
 from dataclasses import dataclass
@@ -35,7 +35,8 @@ from pynwb import (
 from . import auxdata as _auxdata
 
 
-PathLike = str | Path
+PathLike = Union[str, Path]
+EntryData = Union[_pd.Series, _pd.DataFrame]
 
 ANALOG_DATA_TYPE = 'Analog'
 ARBITRARY_UNIT = 'a.u.'
@@ -69,18 +70,18 @@ class NWBMetadata:
 class NWBDataEntry:
     name: str
     domain: str
-    data: _pd.Series | _pd.DataFrame
+    data: EntryData
     datatype: str
     unit: str
     description: str
-    metadata: Optional[dict[str, object]] = None
+    metadata: Optional[Dict[str, object]] = None
 
     def replace(
         self,
-        data: Optional[_pd.Series | _pd.DataFrame] = None,
+        data: Optional[EntryData] = None,
         datatype: Optional[str] = None,
         unit: Optional[str] = None,
-        metadata: Optional[dict[str, object]] = None,
+        metadata: Optional[Dict[str, object]] = None,
     ) -> Self:
         if data is None:
             data = self.data

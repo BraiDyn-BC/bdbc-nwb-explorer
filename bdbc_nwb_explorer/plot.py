@@ -19,7 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from typing import Optional
+from typing import Optional, Dict, Tuple
 from pathlib import Path
 
 import numpy as _np
@@ -29,11 +29,11 @@ import matplotlib.pyplot as _plt
 
 MASK_FILE = Path(__file__).parent / 'data' / 'AllenCCF_masks.h5'
 
-MASK_REG: Optional[dict[str, _npt.NDArray[bool]]] = None
-MASK_SHAPE: Optional[tuple[int]] = None
+MASK_REG: Optional[Dict[str, _npt.NDArray[bool]]] = None
+MASK_SHAPE: Optional[Tuple[int]] = None
 
 
-def get_roi_masks() -> dict[str, _npt.NDArray[bool]]:
+def get_roi_masks() -> Dict[str, _npt.NDArray[bool]]:
     """returns the 512x512 masks"""
     global MASK_REG
     if MASK_REG is None:
@@ -41,7 +41,7 @@ def get_roi_masks() -> dict[str, _npt.NDArray[bool]]:
     return MASK_REG
 
 
-def load_roi_masks() -> dict[str, _npt.NDArray[bool]]:
+def load_roi_masks() -> Dict[str, _npt.NDArray[bool]]:
     def _as_name(name, side):
         return f"{name}_{side[0].lower()}"
 
@@ -59,7 +59,7 @@ def load_roi_masks() -> dict[str, _npt.NDArray[bool]]:
     return MASK_REG
 
 
-def convert_to_Allen_CCF(roi_values: dict[str, _np.floating]) -> _npt.NDArray[_np.float32]:
+def convert_to_Allen_CCF(roi_values: Dict[str, _np.floating]) -> _npt.NDArray[_np.float32]:
     """
     `roi_values` can be of any type, as long as it implements `keys()` and `__getitem__()`.
     returns a 512x512 float array representing the Allen CCF atlas.
