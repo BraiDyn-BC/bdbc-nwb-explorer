@@ -23,6 +23,7 @@
 from importlib import reload as _reload  # DEBUG
 
 from . import (
+    logging,
     io,
     view,
     process,
@@ -30,6 +31,7 @@ from . import (
     plot,
 )
 
+_reload(logging)  # DEBUG
 _reload(io)  # DEBUG
 _reload(view)  # DEBUG
 _reload(process)  # DEBUG
@@ -38,6 +40,10 @@ _reload(plot)  # DEBUG
 
 NWBData = view.NWBData
 NWBDataEntry = io.NWBDataEntry
+
+use_logging = logging.use_logging
+is_logging = logging.is_logging
+set_level = logging.set_level
 
 read_nwb = view.read_nwb
 

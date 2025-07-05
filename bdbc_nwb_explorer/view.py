@@ -43,9 +43,14 @@ import warnings as _warnings
 import numpy as _np
 import pandas as _pd
 
-from . import io as _io
+from . import (
+    logging as _logging,
+    io as _io,
+)
 
-ID_PATTERN = _re.compile(r'([a-zA-Z0-9-#]+)_([0-9-]+)_(task|resting-state|sensory-stim)-day([0-9-]+)')
+DEFAULT_ID_PATTERN = _re.compile(r'([a-zA-Z0-9-#]+)_([0-9-]+)_(task|resting-state|sensory-stim)-day([0-9-]+)')
+DANDI_ID_PATTERN = _re.compile(r'sub-([a-zA-Z0-9-#]+)_ses-([a-zA-Z0-9-]+)_([a-zA-Z0-9-+]+)')
+DANDI_SESSION_PATTERN = _re.compile(r'([0-9]+-[0-9]+-[0-9]+)-(resting-state|task|sensory-stim)-day([0-9]+)')
 DATE_FORMAT = '%Y-%m-%d'
 DOMAINS: Tuple[str] = ('daq', 'imaging', 'body_video', 'eye_video', 'face_video')
 
@@ -499,13 +504,26 @@ class NWBData:
 
 def parse_session_id(filepath: str) -> SessionSpec:
     name = Path(filepath).stem
-    matches = ID_PATTERN.match(name)
-    if not matches:
+    _logging.info(f"parsing session ID from file name: {name}")
+    matches_default = DEFAULT_ID_PATTERN.match(name)
+    matches_dandi = DANDI_ID_PATTERN.match(name)
+    if matches_default:
+        session_date = datetime.strptime(matches_default.group(2), DATE_FORMAT)
+        session_type = matches_default.group(3)
+        day_index = int(matches_default.group(4))
+        _logging.info(f"parsed: {session_date=}, {session_type=}, {day_index=}")
+        return SessionSpec(session_type, session_date, day_index)
+    elif matches_dandi:
+        matches_session = DANDI_SESSION_PATTERN.match(matches_dandi.group(2))
+        if not matches_session:
+            raise ValueError(f"unexpected DANDI-type session spec: {matches_dandi.group(2)}")
+        session_date = datetime.strptime(matches_session.group(1), DATE_FORMAT)
+        session_type = matches_session.group(2)
+        day_index = int(matches_session.group(3))
+        _logging.info(f"parsed: {session_date=}, {session_type=}, {day_index=}")
+        return SessionSpec(session_type, session_date, day_index)
+    else:
         raise ValueError(f'does not match the session ID pattern: {name}')
-    session_date = datetime.strptime(matches.group(2), DATE_FORMAT)
-    session_type = matches.group(3)
-    day_index = int(matches.group(4))
-    return SessionSpec(session_type, session_date, day_index)
 
 
 def read_nwb(

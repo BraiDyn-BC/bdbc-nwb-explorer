@@ -32,7 +32,10 @@ from pynwb import (
     NWBFile as _NWBFile,
 )
 
-from . import auxdata as _auxdata
+from . import (
+    logging as _logging,
+    auxdata as _auxdata,
+)
 
 
 PathLike = Union[str, Path]
@@ -287,6 +290,7 @@ def read_metadata(
     downsampled: bool = True,
 ) -> NWBMetadata:
     # TODO: better including trials/acquisition/ROIs/keypoints metadata
+    _logging.info("reading metadata")
     dff_entry = nwbfile.get_processing_module('ophys').get_data_interface('DfOverF').get_roi_response_series('dFF')
     if nwbfile.trials is None:
         trials_metadata = None
@@ -312,6 +316,7 @@ def read_metadata(
         'trials': trials_metadata,
         'rois': dff_entry.rois.table.to_dataframe(),
     }
+    _logging.debug(f"metadata: {metadata}")
     return NWBMetadata(**metadata)
 
 
@@ -320,15 +325,20 @@ def read_trials(
     downsampled: bool = True
 ) -> Optional[_pd.DataFrame]:
     if downsampled:
+        _logging.info("reading downsampled trials")
         if 'trials' not in nwbfile.get_processing_module('downsampled').data_interfaces:
+            _logging.info("nothing found")
             return None
         entry = nwbfile.get_processing_module('downsampled').get_data_interface('trials')
     else:
+        _logging.info("reading raw trials")
         entry = nwbfile.trials
         if entry is None:
+            _logging.info("nothing found")
             return None
     trials = entry.to_dataframe()
     trials.index.name = None
+    _logging.info(f"loaded {trials.shape[0]} trials")
     return trials
 
 
@@ -337,25 +347,30 @@ def read_acquisition(
     downsampled: bool = True
 ) -> _pd.DataFrame:
     if downsampled:
+        _logging.info("reading downsampled acquisition")
         root = nwbfile.get_processing_module('downsampled')
         node_names = tuple(root.data_interfaces)
 
         def _get(node):
             return root.get_data_interface(node)
     else:
+        _logging.info("reading raw acquisition")
         node_names = tuple(nwbfile.acquisition.keys())
 
         def _get(node):
             return nwbfile.get_acquisition(node)
 
+    _logging.debug(f"node names: {node_names}")
+
     data = dict()
     time = None
     for node in node_names:
         # exclude some of the nodes
-        if node.startswith('widefield_') or node.endswith('_video') or node.endswith('_keypoints'):
+        if node.startswith('widefield_') or node.endswith('_video') or ('keypoint' in node):
             continue
         elif node in ('eye_position', 'pupil_tracking', 'trials'):
             continue
+        _logging.debug(f"reading: {node=}")
         entry = _get(node)
         values = _np.array(entry.data)
         if time is None:
@@ -371,19 +386,24 @@ def read_video_tracking(
     view: Literal['body', 'face', 'eye', 'pupil'] = 'body',
     downsampled: bool = True
 ) -> Optional[_pd.DataFrame]:
+    _logging.info(f"reading video tracking: {view=}")
     if view in ('body', 'face', 'eye'):
         parent_name = f"{view}_video_keypoints"
         if downsampled:
+            _logging.info(f"downsampled tracking data from: {parent_name}")
             root = nwbfile.get_processing_module('downsampled')
         else:
+            _logging.info(f"raw tracking data from: {parent_name}")
             root = nwbfile.get_processing_module('behavior')
         if parent_name not in root.data_interfaces:
+            _logging.info("nothing found")
             return None
         entries = root.get_data_interface(parent_name)
 
         data = dict()
         time = None
         for kpt in entries.pose_estimation_series.keys():
+            _logging.debug(f"reading: {kpt=}")
             entry = entries.get_pose_estimation_series(kpt)
             if time is None:
                 time = _pd.Index(data=_np.array(entry.timestamps), name='time')
@@ -394,10 +414,13 @@ def read_video_tracking(
                 data[kpt, 'likelihood'] = _np.array(entries.get_pose_estimation_series(kpt).confidence)
     elif view == 'pupil':
         if downsampled:
+            _logging.info("downwampled pupil tracking")
             root = nwbfile.get_processing_module('downsampled')
         else:
+            _logging.info("raw pupil tracking")
             root = nwbfile.get_processing_module('behavior')
         if 'pupil_tracking' not in root.data_interfaces:
+            _logging.info("nothing found")
             return None
 
         data = dict()
@@ -414,10 +437,13 @@ def read_video_tracking(
 
 
 def read_roi_dFF(nwbfile: _NWBFile) -> _pd.DataFrame:
+    _logging.info("reading ROI dF/F")
     dff_entry = nwbfile.get_processing_module('ophys').get_data_interface('DfOverF').get_roi_response_series('dFF')
     time = _np.array(dff_entry.timestamps)
     dff = _np.array(dff_entry.data)
     names = tuple(str(name) for name in _np.array(dff_entry.rois.table.get('roi_name')))
+    _logging.info(f"data shape: {dff.shape}")
+    _logging.info(f"roi names: {names}")
     # TODO: it may be needed at some time in the future
     # descs = tuple(str(desc) for desc in _np.array(dff_entry.rois.table.get('roi_description')))
     # roidescs = dict((name, desc) for name, desc in zip(names, descs))
@@ -429,6 +455,7 @@ def read_all(
     downsampled: bool = True,
 ) -> NWBDataStore:
     with _NWBHDFIO(nwbfilepath, mode='r') as src:
+        _logging.info("opening the PyNWB interface")
         nwbfile = src.read()
         data = dict()
         data['metadata'] = read_metadata(nwbfile, downsampled=downsampled)
@@ -438,4 +465,5 @@ def read_all(
         for view in ('body', 'face', 'eye'):
             data[f'{view}_video'] = read_video_tracking(nwbfile, view=view, downsampled=downsampled)
         data['pupil'] = read_video_tracking(nwbfile, view='pupil', downsampled=downsampled)
+    _logging.info("packing everything into data store")
     return NWBDataStore(filepath=str(nwbfilepath), **data)
